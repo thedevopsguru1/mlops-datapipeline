@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db:/var/lib/postgresql/data
+    restart: always
+
+  redis:
+    image: redis:6
+    restart: always
+
+  airflow-webserver:
+    image: apache/airflow:2.7.1
+    restart: always
+    depends_on:
+      - postgres
+      - redis
+    env_file: .env
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+    ports:
+      - "8080:8080"
+    command: webserver
+    user: "${AIRFLOW_UID:-50000}"
+
+  airflow-scheduler:
+    image: apache/airflow:2.7.1
+    restart: always
+    depends_on:
+      - airflow-webserver
+      - postgres
+      - redis
+    env_file: .env
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+    command: scheduler
+    user: "${AIRFLOW_UID:-50000}"
+
+  airflow-worker:
+    image: apache/airflow:2.7.1
+    restart: always
+    depends_on:
+      - postgres
+      - redis
+    env_file: .env
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+    command: celery worker
+    user: "${AIRFLOW_UID:-50000}"
+
+  airflow-flower:
+    image: apache/airflow:2.7.1
+    restart: always
+    depends_on:
+      - redis
+    env_file: .env
+    command: celery flower
+    ports:
+      - "5555:5555"
+    user: "${AIRFLOW_UID:-50000}"
+
+volumes:
+  postgres-db:
